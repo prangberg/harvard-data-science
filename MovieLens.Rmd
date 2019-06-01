@@ -15,6 +15,18 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
+
+## introduction/overview/executive summary section 
+that describes the dataset and summarizes the goal of the project and key steps that were performed
+
+## methods/analysis section 
+that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
+
+## results section
+
+## conclusion section
+
+
 ```{r cars}
 summary(cars)
 ```
