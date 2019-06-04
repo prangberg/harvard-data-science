@@ -1,7 +1,7 @@
 ---
-title: "MovieLens Project Submission"
+title: "HarvardX: PH125.9x Professional Certificate in Data Science - Capstone MovieLens Project "
 author: "Stefan Prangenberg"
-date: "6/1/2019"
+date: "6/3/2019"
 output: html_document
 ---
 
@@ -9,28 +9,40 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+*The submission for the MovieLens project will be three files: a report in the form of an Rmd file, a report in the form of a PDF document knit from your Rmd file, and an R script or Rmd file that generates your predicted movie ratings and calculates RMSE.*
 
-The submission for the MovieLens project will be three files: a report in the form of an Rmd file, a report in the form of a PDF document knit from your Rmd file, and an R script or Rmd file that generates your predicted movie ratings and calculates RMSE.
+For this project, we create a movie recommendation system using the MovieLens dataset. The version of movielens included in the dslabs package is just a small subset of a much larger dataset with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens dataset.
 
-For this project, you will be creating a movie recommendation system using the MovieLens dataset. The version of movielens included in the dslabs package (which was used for some of the exercises in PH125.8x: Data Science: Machine Learning) is just a small subset of a much larger dataset with millions of ratings. You can find the entire latest MovieLens dataset here. You will be creating your own recommendation system using all the tools we have shown you throughout the courses in this series. We will use the 10M version of the MovieLens dataset to make the computation a little easier.
+## Table of Contents
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## 1. Introduction/ overview/executive summary  
+that describes the dataset and summarizes the goal of the project and key steps that were performed
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+The goal of this execise is to leverage movie ratings and machine learnings to create movie recommendations.
 
-###################################
-# Create edx set and validation set
-###################################
+create a movie recommendation system 
 
-# Note: this process could take a couple of minutes
+by developing a machine learning
+algorithm that predicts movie ratings.
+
+
+## 2. Dataset
+
+The GroupLens research lab (https://grouplens.org) created the MovieLens dataset which contains over 20 million ratings by more than 138.000 users for over 27,000 movies.
+For this exercise we use a subset of 10 million records to analyse and generate our report. The 'MovieLens' dataset with 10 million records can be accessed at:  
+• [MovieLens 10M dataset] https://grouplens.org/datasets/movielens/10m/  
+
+
+###Create edx set and validation set
 
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 
+```{r}
 # MovieLens 10M dataset:
-# https://grouplens.org/datasets/movielens/10m/
-# http://files.grouplens.org/datasets/movielens/ml-10m.zip
+##### https://grouplens.org/datasets/movielens/10m/
+##### http://files.grouplens.org/datasets/movielens/ml-10m.zip
+```
 
 dl <- tempfile()
 download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
@@ -45,49 +57,42 @@ movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))
                                            genres = as.character(genres))
 
 movielens <- left_join(ratings, movies, by = "movieId")
-
+```{r}
 # Validation set will be 10% of MovieLens data
+```
 
 set.seed(1) # if using R 3.6.0: set.seed(1, sample.kind = "Rounding")
 test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
 edx <- movielens[-test_index,]
 temp <- movielens[test_index,]
-
+```{r}
 # Make sure userId and movieId in validation set are also in edx set
+```
 
 validation <- temp %>% 
      semi_join(edx, by = "movieId") %>%
      semi_join(edx, by = "userId")
-
+```{r, echo=FALSE}
 # Add rows removed from validation set back into edx set
+```
 
 removed <- anti_join(temp, validation)
 edx <- rbind(edx, removed)
-
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 
-## introduction/overview/executive summary section 
-that describes the dataset and summarizes the goal of the project and key steps that were performed
 
-## methods/analysis section 
-that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach
+## 3. methods/analysis  
 
-## results section
+*that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach*
 
-## conclusion section
+### 3.1 Data Cleaning
+### 3.2 Data Exploration and Visualization
+### 3.3 Modeling Approach
 
+## 4. Results 
 
-```{r cars}
-summary(cars)
-```
+## 5. Conclusion 
 
 ## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
