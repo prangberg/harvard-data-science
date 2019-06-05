@@ -105,24 +105,16 @@ edx %>% group_by(year) %>%
 edx %>% group_by(userId) %>% summarize(mean_rating = mean(rating)) %>% ggplot(aes(x=userId, y=mean_rating)) +geom_line(color="blue")
 ## Graph not meaningful!
 
+
+
 #Ratings per genre
 edx_split_genres %>% group_by(genres) %>%
   summarize(n = n(), avg = mean(rating), se = sd(rating)/sqrt(n())) %>%
   mutate(genres = reorder(genres, avg)) %>%
-  ggplot(aes(x = genres, y = avg, ymin = avg - 1*se, ymax = avg + 1*se)) + 
+  ggplot(aes(x = genres, y = avg, ymin = avg - 0.5*se, ymax = avg + 0.5*se)) + 
   geom_point() +
   geom_errorbar() + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-#Mean for all movies
-
-
-
-#######################
-
-
-
 
 ### Calculate RMSE for true ratings + predicted ratings
 
@@ -130,25 +122,63 @@ RMSE <- function(true_ratings, predicted_ratings){
   sqrt(mean((true_ratings - predicted_ratings)^2))
 }
 
+#MODEL 1 - - Overall average for all movies
+avg <- mean(edx$rating)
+avg
+
+Basic_Model_rmse <-RMSE(validation$rating, avg)
+Basic_Model_rmse
+
+# Determine mean rating for each individual movie
+movie_avgs <- edx %>% 
+  group_by(movieId) %>% 
+  summarize(m_avg = mean(rating))
+movie_avgs %>% qplot(m_avg, geom ="histogram", bins = 20, data = ., color = I("blue"))
+
+# Movie Effect
+ImpactMovie <- edx %>% 
+  group_by(movieId) %>%
+  summarize(ImpactMovie = sum(rating - avg)/(n()+2))
+
+ImpactMovie
+ImpactMovie %>% qplot(ImpactMovie, geom ="histogram", bins = 40, data = ., color = I("blue"))
+
+#MODEL 2 - - Add Movie Effect to model
+
+prediction_MovieEffect <- validation %>% 
+  left_join(ImpactMovie, by='movieId') %>%
+  mutate(pred = avg + ImpactMovie) 
+
+model_2_rmse <- RMSE(validation$rating,prediction_MovieEffect$pred)
+model_2_rmse
+
+# User Effect
+ImpactUser <- edx %>% 
+  group_by(userId) %>%
+  summarize(ImpactUser = sum(rating - avg)/(n()+2))
+
+ImpactUser
+ImpactUser %>% qplot(ImpactUser, geom ="histogram", bins = 40, data = ., color = I("blue"))
+
+#MODEL 3 - - Add User Effect to model
+
+prediction_UserEffect <- validation %>% 
+  left_join(ImpactUser, by='userId') %>%
+  mutate(pred = avg + ImpactUser) 
+
+model_3_rmse <- RMSE(validation$rating,prediction_UserEffect$pred)
+model_3_rmse
+
+
+#MODEL 4 - -  User Effect AND Movie Effect
+
+prediction_UserMovieEffect <- validation %>% 
+  left_join(ImpactUser, by='userId') %>%
+  left_join(ImpactMovie, by='movieId') %>%
+  mutate(pred = avg + ImpactUser + ImpactMovie) 
+
+model_4_rmse <- RMSE(validation$rating,prediction_UserMovieEffect$pred)
+model_4_rmse
 
 
 
-
-
-str(movielens)
-str(edx)
-table(edx$rating)
-table(edx$movieId)
-1018+9677
-length(unique(edx$movieId))
-length(unique(edx$userId))
-table(edx$genres)
-filter(edx, genres %in% c('War')) 
-str_detect(edx$genres, "Drama") %>% sum()
-str_detect(edx$genres, "Comedy") %>% sum()
-str_detect(edx$genres, "Thriller") %>% sum()
-str_detect(edx$genres, "Romance") %>% sum()
-
-table(edx$rating) %>% sort(decreasing = TRUE) %>% head()
-
-?sort
