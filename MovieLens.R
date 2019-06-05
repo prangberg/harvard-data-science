@@ -58,17 +58,21 @@ save(edx, validation, file = "edxData.Rda")
 head(edx)
 summary(edx)
 
+edx_split_genres  <- edx  %>% separate_rows(genres, sep = "\\|")
+valid_split_genres <- validation  %>% mutate(year = as.numeric(str_sub(validation$title,-5,-2))) %>% separate_rows(genres, sep = "\\|")
 
-# Extract the Year from the Title
+# Extract the Year from the Title in both data sets
 edx <- edx %>% extract(title, c("title_name", "year"), regex = "^(.*) \\(([0-9 \\-]*)\\)$", remove = T) %>% mutate(year=as.integer(year))
-
 validation <- validation %>% extract(title, c("title_name", "year"), regex = "^(.*) \\(([0-9 \\-]*)\\)$", remove = T) %>% mutate(year=as.integer(year))
- 
+
+
+genres_edx  <- edx  %>% separate_rows(genres, sep = "\\|")
+genres_valid <- validation  %>% mutate(year = as.numeric(str_sub(validation$title,-5,-2))) %>% separate_rows(genres, sep = "\\|")
+
+#Count number pf distinct users and movies 
 edx %>%   summarize(n_users = n_distinct(userId),n_movies = n_distinct(movieId))
 
-
-
-#Ratings per Movie
+#Number of Ratings per Movie
 edx %>% 
   count(movieId) %>% 
   ggplot(aes(n)) + 
@@ -76,14 +80,45 @@ edx %>%
   scale_x_log10() + 
   ggtitle("Number of Ratings per Movie")
 
-
-#Ratings per user
+#Number of Ratings per user
 edx %>% 
   count(userId) %>% 
   ggplot(aes(n)) + 
   geom_histogram(bins = 50, color = "blue") + 
   scale_x_log10() + 
   ggtitle("Users")
+
+#Movies per year
+edx %>%   count(year) %>%  ggplot (aes(x=year, y=n)) +geom_line(color="blue")
+
+#Average Rating per year
+edx %>% group_by(year) %>% summarize(mean_rating = mean(rating)) %>% ggplot(aes(x=year, y=mean_rating)) +geom_line(color="blue")
+
+edx %>% group_by(year) %>%
+  summarize(rating = mean(rating)) %>%
+  ggplot(aes(year, rating)) +
+  geom_point() +
+  geom_smooth()
+#FORMAT WEXELN
+
+#Average Rating per user
+edx %>% group_by(userId) %>% summarize(mean_rating = mean(rating)) %>% ggplot(aes(x=userId, y=mean_rating)) +geom_line(color="blue")
+## Graph not meaningful!
+
+#Ratings per genre
+edx_split_genres %>% group_by(genres) %>%
+  summarize(n = n(), avg = mean(rating), se = sd(rating)/sqrt(n())) %>%
+  mutate(genres = reorder(genres, avg)) %>%
+  ggplot(aes(x = genres, y = avg, ymin = avg - 1*se, ymax = avg + 1*se)) + 
+  geom_point() +
+  geom_errorbar() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+#Mean for all movies
+
+
+
 #######################
 
 
