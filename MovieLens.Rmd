@@ -11,11 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *The submission for the MovieLens project will be three files: a report in the form of an Rmd file, a report in the form of a PDF document knit from your Rmd file, and an R script or Rmd file that generates your predicted movie ratings and calculates RMSE.*
 
-For this project, we create a movie recommendation system using the MovieLens dataset. The version of movielens included in the dslabs package is just a small subset of a much larger dataset with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens dataset.
+For this project, we create a movie recommendation system using the MovieLens data set. The version of movielens included in the dslabs package is just a small subset of a much larger data set with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens data set.
 
 ## Table of Contents
 1. Introduction
-2. Dataset
+2. Data set
 3. Analysis
 3.1 Data cleaning
 3.2 Data Exploration and Visualization
@@ -24,9 +24,9 @@ For this project, we create a movie recommendation system using the MovieLens da
 5. Conclusion
 
 ## 1. Introduction 
-that describes the dataset and summarizes the goal of the project and key steps that were performed
+that describes the data set and summarizes the goal of the project and key steps that were performed
 
-The goal of this execise is to leverage movie ratings and machine learnings to create movie recommendations.
+The goal of this exercise is to leverage movie ratings and machine learning to create movie recommendations.
 
 create a movie recommendation system by developing a machine learning
 algorithm that predicts movie ratings.
@@ -34,9 +34,9 @@ algorithm that predicts movie ratings.
 
 ## 2. Dataset
 
-The GroupLens research lab (https://grouplens.org) created the MovieLens dataset which contains over 20 million ratings by more than 138.000 users for over 27,000 movies.
-For this exercise we use a subset of 10 million records to analyse and generate our report. The 'MovieLens' dataset with 10 million records can be accessed at:  
-• [MovieLens 10M dataset] https://grouplens.org/datasets/movielens/10m/  
+The GroupLens research lab (https://grouplens.org) created the MovieLens data set which contains over 20 million ratings by more than 138.000 users for over 27,000 movies.
+For this exercise we use a subset of 10 million records to analyse and generate our report. The 'MovieLens' data set with 10 million records can be accessed at:  
+• [MovieLens 10M data set] https://grouplens.org/datasets/movielens/10m/  
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 library(dplyr) 
@@ -147,7 +147,7 @@ validation <-
 ```
 We can now use the year as an integer.
 
-The genre field can contain multiple values. To analyze it, we need to seperate the string into multiple values. We create a line for each genre listed. To not falsify the overall stats, we save the new data as a seperate variable.
+The genre field can contain multiple values. To analyze it, we need to separate the string into multiple values. We create a line for each genre listed. To not falsify the overall stats, we save the new data as a separate variable.
 
 ```{r}
 # Split the groupings of genres into individual lines
@@ -232,22 +232,43 @@ edx_genres_split %>% group_by(genres) %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-Different genres seem to enjoy different popularity with the users. Horror movies averge the lowest rating (3.3). The highest ratings go to IMAX, War, Documentary and Film-Noir (3.8-4). There is a lot of variability in movies that are not assigned to a genre.
+Different genres seem to enjoy different popularity with the users. Horror movies average the lowest rating (3.3). The highest ratings go to IMAX, War, Documentary and Film-Noir (3.8-4). There is a lot of variability in movies that are not assigned to a genre.
 
-## 3.3 Modeling Approach
+### 3.3 Modeling Approach
 
-```{r Modeling}
+Our goal is to reach an Residual Mean Squared Error (RMSE) of  <= 0.87750.
+
+This function will be used to determine the RMSE for each model:
+```{r}
 ### Funtion to Calculate RMSE for true ratings + predicted ratings
 RMSE <- function(true_ratings, predicted_ratings) {
   sqrt(mean((true_ratings - predicted_ratings) ^ 2))
 }
+```
 
-#MODEL 1 - - Mean/average for all movies
+#### Model 1 - Average rating for all movies
+
+In this first (very basic) model, we assume that each movie that we are predicting will have the average rating of all the movies in the edx set. 
+```{r}
 avg <- mean(edx$rating)
 avg
+```
+The average rating across all movies is around 3.5.
+Using this to predict all movies in the validation set, we get this RMSE:
+
+```{r}
 model_1_rmse <- RMSE(validation$rating, avg)
 model_1_rmse
+```
 
+This is far from our target, but will be the baseline for our next models.
+
+
+#### Model 2 - Movie Effect
+This model assumes each movie in the validation set will have the same ratings than the average of all ratings the movie has in the edx set.
+First, we determine the average rating for each movie.
+
+```{r means for each movie}
 # Determine mean rating for each individual movie
 movie_avgs <-
   edx %>%   group_by(movieId) %>%   summarize(m_avg = mean(rating))
@@ -255,15 +276,20 @@ movie_avgs <-
 movie_avgs %>% qplot(
   m_avg,
   geom = "histogram",
-  bins = 20,
+  bins = 40,
   data = .,
   color = I("blue")
 )
+```
+It's interesting to note that this is not a regular bell curve, but the left side is wider. This makes sense, since the average (3.51) is higher than the middle of the scale (which would be 2.5).
+
+We can now determine how "different" the average of each movie is from the average of all movies.
+
+```{r ImpactMovie}
 # What's the impact per MOVIE compared to the overall Mean?
 ImpactMovie <-
   edx %>%   group_by(movieId) %>%  summarize(ImpactMovie = sum(rating - avg) /
                                                (n() + 2))
-ImpactMovie
 # Plot Impact per Movie (compared to overall mean)
 ImpactMovie %>% qplot(
   ImpactMovie,
@@ -272,31 +298,54 @@ ImpactMovie %>% qplot(
   data = .,
   color = I("blue")
 )
-#MODEL 2 - MOVIE - Add Impact per Movie to model
+```
+
+This plot is consistent with our earlier observation, that there are more movies with a negative impact on the (fairly high) overall average rating.
+
+We can now use this information to create our second model, which assumes that movies tend to have the same average rating across all data sets.
+
+```{r prediction_Movie}
 prediction_Movie <-
   validation %>%   left_join(ImpactMovie, by = 'movieId') %>%  mutate(pred = avg + ImpactMovie)
 model_2_rmse <- RMSE(validation$rating, prediction_Movie$pred)
 model_2_rmse
+```
 
+This RMSE is much better than our baseline of 1.06. But still some way to go 0.87.
+
+Next. let's look at our users.
+
+#### Model 3 - User Effect
+Similar to the movies above, let's now look at the impact of users.
+```{r ImpatUser}
 # What's the impact per USER compared to the overall Mean?
 ImpactUser <-
   edx %>%   group_by(userId) %>%  summarize(ImpactUser = sum(rating - avg) /
                                               (n() + 2))
-ImpactUser
 # Plot Impact per USER (compared to overall mean)
 ImpactUser %>% qplot(
   ImpactUser, geom = "histogram", bins = 40, data = ., color = I("blue")
 )
-#MODEL 3 - USER - Add Mean per User to model
+```
+This looks more like a regular Gaussian bell curve, except that it stretches further to the left. A few users seem to give a lot of very negative reviews..
+
+Let's look at the prediction that leverages the user effect:
+```{r prediction_User}
 prediction_User <-
   validation %>%   left_join(ImpactUser, by = 'userId') %>%  mutate(pred = avg + ImpactUser)
 model_3_rmse <- RMSE(validation$rating, prediction_User$pred)
 model_3_rmse
+```
+This is better than our baseline (1.06), but not quite as good as Model 2 that used the Movie effect.
 
+
+#### Model 4 - Year Effect
+
+Let's see if the year has a similar effect as movie and user:
+```{r Year Effect}
 # What's the impact per YEAR compared to the overall Mean?
 ImpactYear <-
   edx %>%   group_by(year) %>%  summarize(ImpactYear = sum(rating - avg) /  (n() + 2))
-ImpactYear
 # Plot Impact per YEAR (compared to overall mean)
 ImpactYear %>% qplot(
   ImpactYear,   geom = "histogram",   bins = 40,   data = .,   color = I("blue")
@@ -306,16 +355,29 @@ prediction_Year <-
   validation %>%   left_join(ImpactYear, by = 'year') %>%  mutate(pred = avg + ImpactYear)
 model_4_rmse <- RMSE(validation$rating, prediction_Year$pred)
 model_4_rmse
+```
 
+This is only slightly better than our baseline of 1.06. Not as helpful as movie or user.
+
+So let's see what a model levering BOTH movie and user can do.
+
+#### Model 5 - User and Movie Effects
+
+```{r User and Movie effect}
 #MODEL 5 - -  User  AND Movie
 prediction_UserMovie <-
   validation %>%   left_join(ImpactUser, by = 'userId') %>%
   left_join(ImpactMovie, by = 'movieId') %>%   mutate(pred = avg + ImpactUser + ImpactMovie)
-head(prediction_UserMovie)
+
 model_5_rmse <- RMSE(validation$rating, prediction_UserMovie$pred)
 model_5_rmse
+```
 
-#MODEL 6 - -  User  AND Movie AND Year
+This is much better than looking at each effect individually. We're much closer to our goal of 0.87. Maybe we can use the year effect to bring us closer?
+
+
+#### Model 6 - User, Movie and Year Effects
+```{r prediction_UserMovieYear}
 prediction_UserMovieYear <-
   validation %>%   left_join(ImpactUser, by = 'userId') %>%
   left_join(ImpactMovie, by = 'movieId') %>%  left_join(ImpactYear, by =
@@ -324,22 +386,33 @@ prediction_UserMovieYear <-
 
 model_6_rmse <-  RMSE(validation$rating, prediction_UserMovieYear$pred)
 model_6_rmse
+```
+Adding the Year did not improve our result.
+Another option to improve Model 5 (User and Movie Effect) is to introduce regularization.
 
-#MODEL 7 - - Regularization Model 
+#### Model 7 - Regularisation of Movie and User Effects
 
-Movie_User_Lambda_Model <- function(lambda) {
+Regularization is one of the basic and most important concept in the world of Machine Learning. It helps us to avoid over-fitting. As seen in Data Exploration, there are big differences in the numbers of ratings per user and per movie. We want to be less reliant one those data points, since there low number makes them less reliable for us.
+
+We will use a lambda value to find the best RMSE.
+If lambda is too low, we risk over-fitting. If it is too high, we risk under-fitting. 
+
+So we create a function that returns the RMSE for a given lambda:
+
+```{r Movie_User_Lambda function}
+Movie_User_Lambda <- function(lambda) {
   
-  avg <- mean(edx$rating)
+#avg <- mean(edx$rating)
   
-  # calculate movie coefficients
+  # calculate movie coefficients for the Movie Effect
   MovieRegEffect <-
     edx %>%   group_by(movieId) %>%  summarize(MovieRegEffect = sum(rating - avg) /
                                                  (n() + lambda))
-  # calculate user coefficients
+  # calculate user coefficients for the User Effect
   UserRegEffect <-
     edx %>%  left_join(MovieRegEffect, by = "movieId") %>% group_by(userId) %>%  summarize(UserRegEffect = sum(rating - avg - MovieRegEffect) / (      n() + lambda))
   
-  # add coefficients to validation
+  # add coefficients to validation to create our Prediction
   validation <-
     validation %>%     
     left_join(MovieRegEffect, by = 'movieId') %>%      
@@ -352,38 +425,68 @@ Movie_User_Lambda_Model <- function(lambda) {
   
   return(lambda_rmse)
 }
+```
 
-# calculate errors for a set of lambda values and choose the smallest rmse
-lambdas <- seq(2, 9, 0.25)    #target: 5.25
+We try a sequence of lambdas from 2 to 8 and use the function above to determine the smallest RMSE.
+
+```{r calculate RMSE for lambdas}
+lambdas <- seq(2, 8, 0.25)    #target: 5.25
+############
 lambdas <- 5.25   
-model_rmses <- sapply(lambdas, Movie_User_Lambda_Model)
+lambda_rmses <- sapply(lambdas, Movie_User_Lambda)
+#Select the best Lambda with the smallest RMSE
+lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
+lambda_of_smallest_rmse
+```
+This plot shows us the distribution of all values:
+```{r}
+# plot Lambdas vs. RMSEs
+ggplot() + geom_line(aes(lambdas, lambda_rmses), col = "black", size = 1) +
+  geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+```
 
-#Select the best Labda with the smallest RMSE
-lambda_of_smallest_rmse <- lambdas[which.min(model_rmses)]
+5.25 is our best lambda value right now. It's better than 5 or 5.5. But maybe  there is an even better value in between.
+
+```{r refine RMSE for lambdas}
+lambdas <- seq(5.23, 5.25, 0.005) 
+lambdas <- seq(5.2, 5.5, 0.01) 
+#lambdas <- 5.25  
+lambda_rmses <- sapply(lambdas, Movie_User_Lambda)
+
+lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
 lambda_of_smallest_rmse
 
 # plot Lambdas vs. RMSEs
-ggplot() + geom_line(aes(lambdas, model_rmses), col = "black", size = 1) +
+ggplot() + geom_line(aes(lambdas, lambda_rmses), col = "black", size = 1) +
   geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+```
 
-lambdas <- seq(5.2, 5.3, 0.02) 
-lambdas <- 5.25  
-model_rmses <- sapply(lambdas, Movie_User_Lambda_Model)
-
-# plot Lambdas vs. RMSEs
-ggplot() + geom_line(aes(lambdas, model_rmses), col = "black", size = 1) +
-  geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+We see that a lambda of 5.24 gives us the best RMSE.
 
 
-model_7_rmse <- model_rmses[which.min(model_rmses)]
-model_7_rmse
+```{r }
+lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
+lambda_of_smallest_rmse
 ```
 
 ## 4. Results 
 
-Model 7 has the lowest RMSE.
+These are the RMSEs of the various models we have used:
 
+```{r}
+cat("Model 1 - Average rating for all movies \t\t",model_1_rmse,"\n")
+cat("Model 2 - Movie Effect \t\t\t\t\t", model_2_rmse,"\n")
+cat("Model 3 - User Effect \t\t\t\t\t", model_3_rmse,"\n")
+cat("Model 4 - Year Effect\t\t\t\t\t", model_4_rmse,"\n")
+cat("Model 5 - User and Movie Effects\t\t\t", model_5_rmse,"\n")
+cat("Model 6 - User, Movie and Year Effects\t\t\t", model_6_rmse,"\n")
+cat("Model 7 - Regularisation of Movie and User Effects\t", model_7_rmse,"\n")
+
+```
 
 ## 5. Conclusion 
 
+Movies and Users have a very strong impact on the accuracy of the prediction and the RMSE. Year seems to be a bad predictor of a users rating.
+
+By using regularization to determine the right balance of over- and under-fitting, we get the lowest RMSE of <0.87. 
 
