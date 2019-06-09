@@ -157,7 +157,7 @@ Now the data is ready to be explored.
 
 The data contains ratings from 69,878 users for 10,677 movies.
 
-```{r summary warning=TRUE}
+```{r summary, warning=TRUE}
 
 #Count number of distinct users and movies
 edx %>%   summarize(n_users = n_distinct(userId), n_movies = n_distinct(movieId))
