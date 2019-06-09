@@ -1,7 +1,7 @@
 ---
 title: "HarvardX: PH125.9x Professional Certificate in Data Science - Capstone MovieLens Project "
 author: "Stefan Prangenberg"
-date: "6/3/2019"
+date: "6/8/2019"
 output: html_document
 ---
 
@@ -14,15 +14,21 @@ knitr::opts_chunk$set(echo = TRUE)
 For this project, we create a movie recommendation system using the MovieLens dataset. The version of movielens included in the dslabs package is just a small subset of a much larger dataset with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens dataset.
 
 ## Table of Contents
+1. Introduction
+2. Dataset
+3. Analysis
+3.1 Data cleaning
+3.2 Data Exploration and Visualization
+3.3 Modeling Approach
+4. Results
+5. Conclusion
 
-## 1. Introduction/ overview/executive summary  
+## 1. Introduction 
 that describes the dataset and summarizes the goal of the project and key steps that were performed
 
 The goal of this execise is to leverage movie ratings and machine learnings to create movie recommendations.
 
-create a movie recommendation system 
-
-by developing a machine learning
+create a movie recommendation system by developing a machine learning
 algorithm that predicts movie ratings.
 
 
@@ -32,67 +38,352 @@ The GroupLens research lab (https://grouplens.org) created the MovieLens dataset
 For this exercise we use a subset of 10 million records to analyse and generate our report. The 'MovieLens' dataset with 10 million records can be accessed at:  
 • [MovieLens 10M dataset] https://grouplens.org/datasets/movielens/10m/  
 
-
-###Create edx set and validation set
-
-if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-
-```{r}
-# MovieLens 10M dataset:
-##### https://grouplens.org/datasets/movielens/10m/
-##### http://files.grouplens.org/datasets/movielens/ml-10m.zip
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(dplyr) 
 ```
 
-dl <- tempfile()
-download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
 
-ratings <- read.table(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
-                      col.names = c("userId", "movieId", "rating", "timestamp"))
-
-movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
-colnames(movies) <- c("movieId", "title", "genres")
-movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
-                                           title = as.character(title),
-                                           genres = as.character(genres))
-
-movielens <- left_join(ratings, movies, by = "movieId")
-```{r}
-# Validation set will be 10% of MovieLens data
+```{r Load data, warning=FALSE}
+# Create edx set and validation set
+if (file.exists("edxData.Rda")) {
+  print("Loading Data from File")
+  load("edxData.Rda")
+    if (!require(tidyverse))
+    install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+  if (!require(caret))
+    install.packages("caret", repos = "http://cran.us.r-project.org")
+  
+} else {
+  # Note: this process could take a couple of minutes
+  print("Loading Data from Source")
+  if (!require(tidyverse))
+    install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+  if (!require(caret))
+    install.packages("caret", repos = "http://cran.us.r-project.org")
+  
+  # MovieLens 10M dataset:
+  # https://grouplens.org/datasets/movielens/10m/
+  # http://files.grouplens.org/datasets/movielens/ml-10m.zip
+  
+  dl <- tempfile()
+  download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+  
+  ratings <-
+    read.table(
+      text = gsub("::", "\t", readLines(unzip(
+        dl, "ml-10M100K/ratings.dat"
+      ))),
+      col.names = c("userId", "movieId", "rating", "timestamp")
+    )
+  
+  movies <-
+    str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+  colnames(movies) <- c("movieId", "title", "genres")
+  movies <-
+    as.data.frame(movies) %>% mutate(
+      movieId = as.numeric(levels(movieId))[movieId],
+      title = as.character(title),
+      genres = as.character(genres)
+    )
+  
+  movielens <- left_join(ratings, movies, by = "movieId")
+  
+  # Validation set will be 10% of MovieLens data
+  set.seed(1) # if using R 3.6.0: set.seed(1, sample.kind = "Rounding")
+  test_index <-
+    createDataPartition(
+      y = movielens$rating,
+      times = 1,
+      p = 0.1,
+      list = FALSE
+    )
+  edx <- movielens[-test_index, ]
+  temp <- movielens[test_index, ]
+  
+  # Make sure userId and movieId in validation set are also in edx set
+  validation <- temp %>%
+    semi_join(edx, by = "movieId") %>%
+    semi_join(edx, by = "userId")
+  
+  # Add rows removed from validation set back into edx set
+  removed <- anti_join(temp, validation)
+  edx <- rbind(edx, removed)
+  
+  rm(dl, ratings, movies, test_index, temp, movielens, removed)
+  
+  save(edx, validation, file = "edxData.Rda")
+}
 ```
 
-set.seed(1) # if using R 3.6.0: set.seed(1, sample.kind = "Rounding")
-test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
-edx <- movielens[-test_index,]
-temp <- movielens[test_index,]
-```{r}
-# Make sure userId and movieId in validation set are also in edx set
-```
-
-validation <- temp %>% 
-     semi_join(edx, by = "movieId") %>%
-     semi_join(edx, by = "userId")
-```{r, echo=FALSE}
-# Add rows removed from validation set back into edx set
-```
-
-removed <- anti_join(temp, validation)
-edx <- rbind(edx, removed)
-rm(dl, ratings, movies, test_index, temp, movielens, removed)
-
-
-
-## 3. methods/analysis  
+## 3. Analysis  
 
 *that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach*
 
 ### 3.1 Data Cleaning
+
+Let's take a first look at the data:
+
+```{r}
+head(edx)
+```
+The data contains the userID, movieID, rating, timestamp, title (incl. year) and a list of genres.
+
+To be able to analyze the year, we need to extract it from the title string:
+
+```{r Data Enhancement, echo=TRUE, message=FALSE, warning=FALSE}
+# Extract the Year from the Title in both data sets
+
+validation <-
+  validation %>% extract(title,
+                         c("title_name", "year"),
+                         regex = "^(.*) \\(([0-9 \\-]*)\\)$",
+                         remove = T) %>% mutate(year = as.integer(year))
+edx <-
+  edx %>% extract(title,
+                  c("title_name", "year"),
+                  regex = "^(.*) \\(([0-9 \\-]*)\\)$",
+                  remove = T) %>% mutate(year = as.integer(year))
+head(edx)
+```
+We can now use the year as an integer.
+
+Next we seperate the list of genres into multiple values, so that we can analyze them individually.
+
+```{r}
+# Split the groupings of genres into individual lines
+edx_genres_split  <-  edx  %>% separate_rows(genres, sep = "\\|")
+```
+Now the data is ready to be explored.
+
 ### 3.2 Data Exploration and Visualization
-### 3.3 Modeling Approach
+
+The data contains ratings from 69,878 users for 10,677 movies.
+
+```{r warning=TRUE}
+
+#Count number of distinct users and movies
+edx %>%   summarize(n_users = n_distinct(userId), n_movies = n_distinct(movieId))
+summary(edx)
+```
+
+The ratings start at 0.5 (there is rating of 0) and increment in steps of 0.5 up to 5.0. 
+The oldest movie in the data is from 1915 and the most recent from 2008.
+
+###Number of Ratings per Movie
+```{r number of ratings oer movie}
+#Plot Number of Ratings per Movie
+edx %>%
+  count(movieId) %>%
+  ggplot(aes(n)) +
+  geom_histogram(bins = 50, color = "blue") +
+  scale_x_log10() +
+  ggtitle("Number of Ratings per Movie")
+```
+
+Each movie have anywhere between 1 and 10,000+ ratings. A few hundred movies only have a dozen or less ratings, which will make predictions for them challenging.
+
+
+###Number of Ratings per User
+```{r number ratings per user}
+#Plot Number of Ratings per user
+edx %>%
+  count(userId) %>%
+  ggplot(aes(n)) +
+  geom_histogram(bins = 20, color = "blue") +
+  scale_x_log10() +
+  ggtitle("Number of Ratings per User")
+```
+
+Some users have rated more than 1,000 movies. Similar to the movies, there are a large amount of users that have only rated a few movies. Predictions for those users will be challenging as well.
+
+###Number of Movies per Year
+```{r Movies per year}
+#Movies per year
+edx %>%   count(year) %>%  ggplot (aes(x = year, y = n)) + geom_line(color =
+                                                                       "blue")
+
+```
+
+The vast majority of movies were created between 1990 and 1995. Only very few movies date back earlier than the 1950s.
+
+### Average rating per year
+```{r message=FALSE, warning=FALSE}
+#Average Rating per year
+edx %>% group_by(year) %>% summarize(mean_rating = mean(rating)) %>% ggplot(aes(x =year, y = mean_rating)) + geom_line(color = "blue") +   geom_smooth()
+```
+Older movies seem to be rated higher, with a peak around 1950. Newer movies created after 1990 (which is the majority as we saw earlier) tend to have lower ratings.
+
+### Average rating per genre
+```{r Genre plot}
+#Plot average Ratings per genre - sorted from lowest to highest
+edx_genres_split %>% group_by(genres) %>%
+  summarize(n = n(),
+            avg = mean(rating),
+            se = sd(rating) / sqrt(n())) %>%
+  mutate(genres = reorder(genres, avg)) %>%
+  ggplot(aes(
+    x = genres,
+    y = avg,
+    ymin = avg - 0.5 * se,
+    ymax = avg + 0.5 * se
+  )) +
+  geom_point() +
+  geom_errorbar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Different genres seem to enjoy different popularity with the users. Horror movies averge the lowest rating (3.3). The highest ratings go to IMAX, War, Documentary and Film-Noir (3.8-4).
+
+## 3.3 Modeling Approach
+
+```{r Modeling}
+### Funtion to Calculate RMSE for true ratings + predicted ratings
+RMSE <- function(true_ratings, predicted_ratings) {
+  sqrt(mean((true_ratings - predicted_ratings) ^ 2))
+}
+
+#MODEL 1 - - Mean/average for all movies
+avg <- mean(edx$rating)
+avg
+model_1_rmse <- RMSE(validation$rating, avg)
+model_1_rmse
+
+# Determine mean rating for each individual movie
+movie_avgs <-
+  edx %>%   group_by(movieId) %>%   summarize(m_avg = mean(rating))
+# Plot distribution of mean ratings for all movies
+movie_avgs %>% qplot(
+  m_avg,
+  geom = "histogram",
+  bins = 20,
+  data = .,
+  color = I("blue")
+)
+# What's the impact per MOVIE compared to the overall Mean?
+ImpactMovie <-
+  edx %>%   group_by(movieId) %>%  summarize(ImpactMovie = sum(rating - avg) /
+                                               (n() + 2))
+ImpactMovie
+# Plot Impact per Movie (compared to overall mean)
+ImpactMovie %>% qplot(
+  ImpactMovie,
+  geom = "histogram",
+  bins = 40,
+  data = .,
+  color = I("blue")
+)
+#MODEL 2 - MOVIE - Add Impact per Movie to model
+prediction_Movie <-
+  validation %>%   left_join(ImpactMovie, by = 'movieId') %>%  mutate(pred = avg + ImpactMovie)
+model_2_rmse <- RMSE(validation$rating, prediction_Movie$pred)
+model_2_rmse
+
+# What's the impact per USER compared to the overall Mean?
+ImpactUser <-
+  edx %>%   group_by(userId) %>%  summarize(ImpactUser = sum(rating - avg) /
+                                              (n() + 2))
+ImpactUser
+# Plot Impact per USER (compared to overall mean)
+ImpactUser %>% qplot(
+  ImpactUser, geom = "histogram", bins = 40, data = ., color = I("blue")
+)
+#MODEL 3 - USER - Add Mean per User to model
+prediction_User <-
+  validation %>%   left_join(ImpactUser, by = 'userId') %>%  mutate(pred = avg + ImpactUser)
+model_3_rmse <- RMSE(validation$rating, prediction_User$pred)
+model_3_rmse
+
+# What's the impact per YEAR compared to the overall Mean?
+ImpactYear <-
+  edx %>%   group_by(year) %>%  summarize(ImpactYear = sum(rating - avg) /  (n() + 2))
+ImpactYear
+# Plot Impact per YEAR (compared to overall mean)
+ImpactYear %>% qplot(
+  ImpactYear,   geom = "histogram",   bins = 40,   data = .,   color = I("blue")
+)
+#MODEL 4 - YEAR - Add Mean per Year  model
+prediction_Year <-
+  validation %>%   left_join(ImpactYear, by = 'year') %>%  mutate(pred = avg + ImpactYear)
+model_4_rmse <- RMSE(validation$rating, prediction_Year$pred)
+model_4_rmse
+
+#MODEL 5 - -  User  AND Movie
+prediction_UserMovie <-
+  validation %>%   left_join(ImpactUser, by = 'userId') %>%
+  left_join(ImpactMovie, by = 'movieId') %>%   mutate(pred = avg + ImpactUser + ImpactMovie)
+head(prediction_UserMovie)
+model_5_rmse <- RMSE(validation$rating, prediction_UserMovie$pred)
+model_5_rmse
+
+#MODEL 6 - -  User  AND Movie AND Year
+prediction_UserMovieYear <-
+  validation %>%   left_join(ImpactUser, by = 'userId') %>%
+  left_join(ImpactMovie, by = 'movieId') %>%  left_join(ImpactYear, by =
+                                                          'year') %>%
+  mutate(pred = avg + ImpactUser + ImpactMovie + ImpactYear)
+
+model_6_rmse <-  RMSE(validation$rating, prediction_UserMovieYear$pred)
+model_6_rmse
+
+#MODEL 7 - - Regularization Model 
+
+Movie_User_Lambda_Model <- function(lambda) {
+  
+  avg <- mean(edx$rating)
+  
+  # calculate movie coefficients
+  MovieRegEffect <-
+    edx %>%   group_by(movieId) %>%  summarize(MovieRegEffect = sum(rating - avg) /
+                                                 (n() + lambda))
+  # calculate user coefficients
+  UserRegEffect <-
+    edx %>%  left_join(MovieRegEffect, by = "movieId") %>% group_by(userId) %>%  summarize(UserRegEffect = sum(rating - avg - MovieRegEffect) / (      n() + lambda))
+  
+  # add coefficients to validation
+  validation <-
+    validation %>%     
+    left_join(MovieRegEffect, by = 'movieId') %>%      
+    left_join(UserRegEffect, by = 'userId')
+  
+  # Determine RMSE for current lambda
+  lambda_rmse <-
+    RMSE(validation$rating,
+         (avg + validation$MovieRegEffect + validation$UserRegEffect))
+  
+  return(lambda_rmse)
+}
+
+# calculate errors for a set of lambda values and choose the smallest rmse
+lambdas <- seq(2, 9, 0.25)    #target: 5.25
+lambdas <- 5.25   
+model_rmses <- sapply(lambdas, Movie_User_Lambda_Model)
+
+#Select the best Labda with the smallest RMSE
+lambda_of_smallest_rmse <- lambdas[which.min(model_rmses)]
+lambda_of_smallest_rmse
+
+# plot Lambdas vs. RMSEs
+ggplot() + geom_line(aes(lambdas, model_rmses), col = "black", size = 1) +
+  geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+
+lambdas <- seq(5.2, 5.3, 0.02) 
+lambdas <- 5.25  
+model_rmses <- sapply(lambdas, Movie_User_Lambda_Model)
+
+# plot Lambdas vs. RMSEs
+ggplot() + geom_line(aes(lambdas, model_rmses), col = "black", size = 1) +
+  geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+
+
+model_7_rmse <- model_rmses[which.min(model_rmses)]
+model_7_rmse
+```
 
 ## 4. Results 
 
+Model 7 has the lowest RMSE.
+
+
 ## 5. Conclusion 
 
-## Including Plots
 

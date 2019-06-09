@@ -1,5 +1,5 @@
 ###########################################################
-#    HarvardX Professional Cetificate in Data Science     #
+#    HarvardX Professional Certificate in Data Science     #
 #               PH125.9X: Capstone Project                #
 ###########################################################
 
@@ -8,6 +8,10 @@
 if (file.exists("edxData.Rda")) {
   print("Loading Data from File")
   load("edxData.Rda")
+  if (!require(tidyverse))
+    install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+  if (!require(caret))
+    install.packages("caret", repos = "http://cran.us.r-project.org")
 } else {
   # Note: this process could take a couple of minutes
   print("Loading Data from Source")
@@ -78,12 +82,15 @@ if (file.exists("edxData.Rda")) {
 head(edx)
 summary(edx)
 
-# Extract the Year from the Title in both data sets
+# Extract the YEAR from the Title in both data sets
 edx <-
-  edx %>% extract(title,
+  edx %>% 
+  extract(title,
                   c("title_name", "year"),
                   regex = "^(.*) \\(([0-9 \\-]*)\\)$",
-                  remove = T) %>% mutate(year = as.integer(year))
+                  remove = T) %>%
+  mutate(year = as.integer(year))
+
 validation <-
   validation %>% extract(title,
                          c("title_name", "year"),
@@ -93,8 +100,10 @@ validation <-
 
 # Split the groupings of genres into individual lines
 edx_genres_split  <-  edx  %>% separate_rows(genres, sep = "\\|")
-genres_valid <-
-  validation  %>% mutate(year = as.numeric(str_sub(validation$title, -5, -2))) %>% separate_rows(genres, sep = "\\|")
+head(edx_genres_split)
+#genres_valid <-
+ # validation  %>% mutate(year = as.numeric(str_sub(validation$title, -5, -2))) %>% separate_rows(genres, sep = "\\|")
+#head(genres_valid)
 
 #Count number of distinct users and movies
 edx %>%   summarize(n_users = n_distinct(userId), n_movies = n_distinct(movieId))
@@ -127,7 +136,6 @@ edx %>% group_by(year) %>%
   ggplot(aes(year, rating)) +
   geom_point() +
   geom_smooth()
-## get that liune for a prediction?
 
 #Plot average Ratings per genre - sorted from lowerst to highest
 edx_genres_split %>% group_by(genres) %>%
@@ -233,38 +241,47 @@ prediction_UserMovieYear <-
 model_6_rmse <-  RMSE(validation$rating, prediction_UserMovieYear$pred)
 model_6_rmse
 
-#MODEL 6 - - Regularization Model 
+#MODEL 7 - - Regularization Model 
 
 Movie_User_Lambda_Model <- function(lambda) {
+  
+  avg <- mean(edx$rating)
+  
   # calculate movie coefficients
-  ImpactMovie <-
-    edx %>%   group_by(movieId) %>%  summarize(ImpactMovie = sum(rating - avg) /
+  MovieRegEffect <-
+    edx %>%   group_by(movieId) %>%  summarize(MovieRegEffect = sum(rating - avg) /
                                                  (n() + lambda))
   # calculate user coefficients
-  ImpactUser <-
-    edx %>%  left_join(ImpactMovie, by = "movieId") %>% group_by(userId) %>%  summarize(ImpactUser = sum(rating - avg - ImpactMovie) / (      n() + lambda))
+  UserRegEffect <-
+    edx %>%  left_join(MovieRegEffect, by = "movieId") %>% group_by(userId) %>%  summarize(UserRegEffect = sum(rating - avg - MovieRegEffect) / (      n() + lambda))
   
   # add coefficients to validation
   validation <-
-    validation %>%     left_join(ImpactMovie, by = 'movieId') %>%      left_join(ImpactUser, by =
-                                                                                    'userId')
+    validation %>%     
+    left_join(MovieRegEffect, by = 'movieId') %>%      
+    left_join(UserRegEffect, by = 'userId')
   
   # Determine RMSE for current lambda
   lambda_rmse <-
     RMSE(validation$rating,
-         (avg + validation$ImpactUser + validation$ImpactUser))
+         (avg + validation$MovieRegEffect + validation$UserRegEffect))
   
   return(lambda_rmse)
 }
 
 # calculate errors for a set of lambda values and choose the smallest rmse
-lambdas <- seq(2, 10, 0.25)    #target: 5.25
-lambdas <- seq(5, 5.5, 0.25)    
+lambdas <- seq(2, 9, 0.25)    #target: 5.25
+#lambdas <- seq(5, 5.5, 0.25)    
 model_rmses <- sapply(lambdas, Movie_User_Lambda_Model)
-lambda_of_smallest_rmse <- lambdas[which.min(model_rmses)]
-
-model_rmses[which.min(model_rmses)]
 
 # plot Lambdas vs. RMSEs
 ggplot() + geom_line(aes(lambdas, model_rmses), col = "black", size = 1) +
   geom_vline(xintercept = lambda_of_smallest_rmse, col = "blue") + ggtitle("Movie /User Effect Model: RMSE for various lambdas") + ylab("RMSE") + xlab("lambda")
+
+#Select the best Labda with the smallest RMSE
+lambda_of_smallest_rmse <- lambdas[which.min(model_rmses)]
+lambda_of_smallest_rmse
+
+model_7_rmse <- model_rmses[which.min(model_rmses)]
+model_7_rmse
+
