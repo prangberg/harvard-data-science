@@ -11,26 +11,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *The submission for the MovieLens project will be three files: a report in the form of an Rmd file, a report in the form of a PDF document knit from your Rmd file, and an R script or Rmd file that generates your predicted movie ratings and calculates RMSE.*
 
-For this project, we create a movie recommendation system using the MovieLens data set. The version of movielens included in the dslabs package is just a small subset of a much larger data set with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens data set.
-
 ## Table of Contents
 1. Introduction
 2. Data set
 3. Analysis
-3.1 Data cleaning
-3.2 Data Exploration and Visualization
-3.3 Modeling Approach
++ 3.1 Data cleaning
++ 3.2 Data Exploration and Visualization
++ 3.3 Modeling Approach
 4. Results
 5. Conclusion
 
 ## 1. Introduction 
-that describes the data set and summarizes the goal of the project and key steps that were performed
 
 The goal of this exercise is to leverage movie ratings and machine learning to create movie recommendations.
 
-create a movie recommendation system by developing a machine learning
-algorithm that predicts movie ratings.
-
+We create a movie recommendation system using the MovieLens data set. The version of movielens included in the dslabs package is just a small subset of a much larger data set with millions of ratings. We will  create a recommendation system using the 10M version of the MovieLens data set.
 
 ## 2. Dataset
 
@@ -43,7 +38,7 @@ library(dplyr)
 ```
 
 
-```{r Load data, message=FALSE, warning=FALSE}
+```{r Load data, echo=TRUE, message=FALSE, warning=FALSE}
 # Create edx set and validation set
 if (file.exists("edxData.Rda")) {
   print("Loading Data from File")
@@ -115,6 +110,8 @@ if (file.exists("edxData.Rda")) {
 }
 ```
 
+
+
 ## 3. Analysis  
 
 ### 3.1 Data Cleaning
@@ -149,7 +146,7 @@ We can now use the year as an integer.
 
 The genre field can contain multiple values. To analyze it, we need to separate the string into multiple values. We create a line for each genre listed. To not falsify the overall stats, we save the new data as a separate variable.
 
-```{r}
+```{r split genres}
 # Split the groupings of genres into individual lines
 edx_genres_split  <-  edx  %>% separate_rows(genres, sep = "\\|")
 head(edx_genres_split)
@@ -160,7 +157,7 @@ Now the data is ready to be explored.
 
 The data contains ratings from 69,878 users for 10,677 movies.
 
-```{r warning=TRUE}
+```{r summary warning=TRUE}
 
 #Count number of distinct users and movies
 edx %>%   summarize(n_users = n_distinct(userId), n_movies = n_distinct(movieId))
@@ -176,7 +173,7 @@ The oldest movie in the data is from 1915 and the most recent from 2008.
 edx %>%
   count(movieId) %>%
   ggplot(aes(n)) +
-  geom_histogram(bins = 40, color = "blue") +
+  geom_histogram(bins = 40, color = "blue", fill="white") +
   scale_x_log10() +
   ggtitle("Number of Ratings per Movie")
 ```
@@ -190,7 +187,7 @@ Each movie have anywhere between 1 and 10,000+ ratings. A few hundred movies onl
 edx %>%
   count(userId) %>%
   ggplot(aes(n)) +
-  geom_histogram(bins = 40, color = "blue") +
+  geom_histogram(bins = 40, color = "blue",fill="white") +
   scale_x_log10() +
   ggtitle("Number of Ratings per User")
 ```
@@ -278,9 +275,11 @@ movie_avgs %>% qplot(
   geom = "histogram",
   bins = 40,
   data = .,
-  color = I("blue")
+  color = I("blue"),
+  fill =  I("white")
 )
 ```
+
 It's interesting to note that this is not a regular bell curve, but the left side is wider. This makes sense, since the average (3.51) is higher than the middle of the scale (which would be 2.5).
 
 We can now determine how "different" the average of each movie is from the average of all movies.
@@ -296,7 +295,8 @@ ImpactMovie %>% qplot(
   geom = "histogram",
   bins = 40,
   data = .,
-  color = I("blue")
+  color = I("blue"),
+  fill =  I("white")
 )
 ```
 
@@ -324,9 +324,10 @@ ImpactUser <-
                                               (n() + 2))
 # Plot Impact per USER (compared to overall mean)
 ImpactUser %>% qplot(
-  ImpactUser, geom = "histogram", bins = 40, data = ., color = I("blue")
+  ImpactUser, geom = "histogram", bins = 40, data = ., color = I("blue"),fill =  I("white")
 )
 ```
+
 This looks more like a regular Gaussian bell curve, except that it stretches further to the left. A few users seem to give a lot of very negative reviews..
 
 Let's look at the prediction that leverages the user effect:
@@ -348,7 +349,7 @@ ImpactYear <-
   edx %>%   group_by(year) %>%  summarize(ImpactYear = sum(rating - avg) /  (n() + 2))
 # Plot Impact per YEAR (compared to overall mean)
 ImpactYear %>% qplot(
-  ImpactYear,   geom = "histogram",   bins = 40,   data = .,   color = I("blue")
+  ImpactYear,   geom = "histogram",   bins = 40,   data = .,   color = I("blue"),fill =  I("white")
 )
 #MODEL 4 - YEAR - Add Mean per Year  model
 prediction_Year <-
@@ -431,9 +432,9 @@ We try a sequence of lambdas from 2 to 8 and use the function above to determine
 
 ```{r calculate RMSE for lambdas}
 lambdas <- seq(2, 8, 0.25)    #target: 5.25
-############
-lambdas <- 5.25   
+   
 lambda_rmses <- sapply(lambdas, Movie_User_Lambda)
+
 #Select the best Lambda with the smallest RMSE
 lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
 lambda_of_smallest_rmse
@@ -447,10 +448,9 @@ ggplot() + geom_line(aes(lambdas, lambda_rmses), col = "black", size = 1) +
 
 5.25 is our best lambda value right now. It's better than 5 or 5.5. But maybe  there is an even better value in between.
 
-```{r refine RMSE for lambdas}
-lambdas <- seq(5.23, 5.25, 0.005) 
-lambdas <- seq(5.2, 5.5, 0.01) 
-#lambdas <- 5.25  
+```{r refine RMSE for lambdas, echo=FALSE}
+lambdas <- seq(5.23, 5.26, 0.01) 
+
 lambda_rmses <- sapply(lambdas, Movie_User_Lambda)
 
 lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
@@ -465,20 +465,22 @@ We see that a lambda of 5.24 gives us the best RMSE.
 
 
 ```{r }
-lambda_of_smallest_rmse <- lambdas[which.min(lambda_rmses)]
-lambda_of_smallest_rmse
+ lambdas[which.min(lambda_rmses)]
+
+model_7_rmse <- lambda_rmses[which.min(lambda_rmses)]
+
 ```
 
 ## 4. Results 
 
 These are the RMSEs of the various models we have used:
 
-```{r}
+```{r echo=FALSE}
 cat("Model 1 - Average rating for all movies \t\t",model_1_rmse,"\n")
-cat("Model 2 - Movie Effect \t\t\t\t\t", model_2_rmse,"\n")
-cat("Model 3 - User Effect \t\t\t\t\t", model_3_rmse,"\n")
-cat("Model 4 - Year Effect\t\t\t\t\t", model_4_rmse,"\n")
-cat("Model 5 - User and Movie Effects\t\t\t", model_5_rmse,"\n")
+cat("Model 2 - Movie Effect \t\t\t\t\t\t", model_2_rmse,"\n")
+cat("Model 3 - User Effect \t\t\t\t\t\t", model_3_rmse,"\n")
+cat("Model 4 - Year Effect\t\t\t\t\t\t", model_4_rmse,"\n")
+cat("Model 5 - User and Movie Effects\t\t\t\t", model_5_rmse,"\n")
 cat("Model 6 - User, Movie and Year Effects\t\t\t", model_6_rmse,"\n")
 cat("Model 7 - Regularisation of Movie and User Effects\t", model_7_rmse,"\n")
 
@@ -486,7 +488,5 @@ cat("Model 7 - Regularisation of Movie and User Effects\t", model_7_rmse,"\n")
 
 ## 5. Conclusion 
 
-Movies and Users have a very strong impact on the accuracy of the prediction and the RMSE. Year seems to be a bad predictor of a users rating.
-
+Movies and Users have a very strong impact on the accuracy of the prediction and the RMSE. A movies year seems to be a bad predictor of a users rating.
 By using regularization to determine the right balance of over- and under-fitting, we get the lowest RMSE of <0.87. 
-
